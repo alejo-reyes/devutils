@@ -4,7 +4,7 @@ A collection of development utilities and shell scripts to streamline common tas
 
 ## Device Switcher
 
-A powerful Bluetooth device switcher for macOS that allows you to easily switch Magic Keyboard and Magic Mouse between multiple devices (e.g., different laptops).
+A powerful Bluetooth device switcher for macOS and Windows that lets you quickly move a Magic Keyboard and Magic Mouse between multiple computers.
 
 ### Features
 
@@ -15,12 +15,13 @@ A powerful Bluetooth device switcher for macOS that allows you to easily switch 
 - 🔍 **Device Discovery**: Finds devices in both paired and nearby lists
 - 📊 **Status Checking**: Monitor connection status of your devices
 - 🛠️ **Both Device Support**: Switch keyboard and mouse simultaneously
+- 🧩 **Cross-Platform**: Bash script for macOS, PowerShell script for Windows
 
 ### Prerequisites
 
-#### Install blueutil via Homebrew
+#### macOS (Bash script)
 
-The script requires `blueutil`, a command-line Bluetooth utility for macOS:
+Requires [`blueutil`](https://github.com/toy/blueutil), a command-line Bluetooth utility for macOS:
 
 ```bash
 # Install Homebrew (if not already installed)
@@ -29,6 +30,20 @@ The script requires `blueutil`, a command-line Bluetooth utility for macOS:
 # Install blueutil
 brew install blueutil
 ```
+
+#### Windows (PowerShell script)
+
+Requires PowerShell 7.3+ with the Windows Bluetooth module (available in Windows 11 22H2 and newer):
+
+```powershell
+# Install the Bluetooth module (requires admin)
+Install-Module Bluetooth
+
+# or use winget
+winget install Microsoft.PowerShell.Bluetooth
+```
+
+You can run the script in an elevated PowerShell session or specify `-ExecutionPolicy Bypass` per invocation.
 
 #### Device Setup
 
@@ -40,20 +55,37 @@ brew install blueutil
 
 ### Installation
 
-1. **Clone or download** this repository
+#### macOS
+
+1. **Clone or download** this repository.
 2. **Make the script executable**:
    ```bash
    chmod +x shell_scripts/device_switch.sh
    ```
-3. **Add alias to your shell** (already done if you followed the setup):
+3. **Add an alias to your shell** (optional but handy):
    ```bash
    echo "alias ds='$(pwd)/shell_scripts/device_switch.sh'" >> ~/.zshrc
    source ~/.zshrc
    ```
 
+#### Windows
+
+1. **Clone or download** this repository.
+2. **(Optional) Add a helper function to your PowerShell profile** for a `ds` shortcut:
+   ```powershell
+   if (-not (Test-Path $PROFILE)) { New-Item -Path $PROFILE -ItemType File -Force | Out-Null }
+   Add-Content $PROFILE "`nfunction ds { & '$(Get-Location)\shell_scripts\device_switch.ps1' @Args }"
+   ```
+   Reload your profile or open a new PowerShell session afterward.
+
+Without the helper function you can run the script directly:
+```powershell
+powershell -ExecutionPolicy Bypass -File .\shell_scripts\device_switch.ps1 keyboard claim
+```
+
 ### Usage
 
-#### Basic Commands
+#### macOS (alias example)
 
 ```bash
 # Show help
@@ -72,14 +104,28 @@ ds both status         # Check status of both devices
 ds b s                 # Same (short form)
 ```
 
+#### Windows (PowerShell)
+
+```powershell
+# Show help
+.\shell_scripts\device_switch.ps1 -Device keyboard -Action status
+
+# Short forms mirror the macOS script
+.\shell_scripts\device_switch.ps1 k c    # Claim keyboard
+.\shell_scripts\device_switch.ps1 m r    # Release mouse
+.\shell_scripts\device_switch.ps1 b s    # Status of both devices
+```
+
+When using the `ds` helper function described earlier, the commands match the macOS alias examples.
+
 #### Device Types
 - `keyboard` or `k` - Magic Keyboard
 - `mouse` or `m` - Magic Mouse  
 - `both` or `b` - Both devices
 
 #### Actions
-- `claim` or `c` - Claim device (pair & connect to this laptop)
-- `release` or `r` - Release device (unpair so other laptop can use)
+- `claim` or `c` - Claim device (pair & connect to this machine)
+- `release` or `r` - Release device (disconnect and remove pairing)
 - `status` or `s` - Check current connection status
 
 ### Workflow Examples
@@ -178,6 +224,14 @@ blueutil --is-connected <device-id>
 blueutil --pair <device-id> 0000
 ```
 
+```powershell
+# Windows equivalents
+Get-BluetoothDevice
+Get-BluetoothDevice -Paired:$false
+Connect-BluetoothDevice -DeviceAddress <mac>
+Remove-BluetoothDevice -DeviceAddress <mac>
+```
+
 ### File Structure
 
 ```
@@ -185,11 +239,11 @@ devutils/
 ├── README.md                    # This file
 ├── package.json                 # Project configuration
 └── shell_scripts/
+    ├── device_switch.ps1        # Windows PowerShell device switcher
     ├── device_switch.sh         # Main device switcher script
     ├── keyboard_switch.sh       # Original keyboard-only script
     ├── inject-simple.sh         # Other utility scripts
-    ├── re_pair.sh
-    └── keyboard_switch.sh
+    └── re_pair.sh
 ```
 
 ### Contributing
