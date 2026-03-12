@@ -658,49 +658,113 @@ list_chrome_profiles() {
     echo "Location: $chrome_dir"
     echo
     
-    # List profile directories
-    local profile_count=0
-    local profiles=()
+    local local_state="$chrome_dir/Local State"
     
-    if [ -d "$chrome_dir/Default" ]; then
-        echo "• Default"
-        profiles+=("Default")
-        profile_count=$((profile_count + 1))
-    fi
-    
-    for profile_dir in "$chrome_dir"/Profile*; do
-        if [ -d "$profile_dir" ]; then
-            local profile_name=$(basename "$profile_dir")
-            echo "• $profile_name"
-            profiles+=("$profile_name")
+    if [ -f "$local_state" ]; then
+        # Read rich profile info from Local State
+        python3 << 'PYEOF'
+import json
+import sys
+import os
+
+chrome_dir = os.path.expanduser("~/Library/Application Support/Google/Chrome")
+local_state_path = os.path.join(chrome_dir, "Local State")
+
+try:
+    with open(local_state_path, "r") as f:
+        data = json.load(f)
+except Exception as e:
+    print(f"ERROR: Failed to read Local State: {e}", file=sys.stderr)
+    sys.exit(1)
+
+info_cache = data.get("profile", {}).get("info_cache", {})
+
+if not info_cache:
+    print("No profiles found in Local State.")
+    sys.exit(1)
+
+profiles = []
+for dir_name in sorted(info_cache.keys()):
+    info = info_cache[dir_name]
+    name = info.get("name", "Unknown")
+    email = info.get("user_name", "")
+    gaia_name = info.get("gaia_name", "")
+    profiles.append((dir_name, name, gaia_name, email))
+
+for dir_name, name, gaia_name, email in profiles:
+    print(f"  • {dir_name}")
+    print(f"      Name:  {name}")
+    if gaia_name:
+        print(f"      User:  {gaia_name}")
+    if email:
+        print(f"      Email: {email}")
+    print()
+
+print(f"Found {len(profiles)} profile(s)")
+print()
+print("Usage Instructions:")
+print("==================")
+print("To start Chrome with a specific profile, use:")
+print()
+print('  npm run devtools:start -- "" "<profile-name>"')
+print()
+print("Examples:")
+for dir_name, name, gaia_name, email in profiles:
+    label = gaia_name or name or dir_name
+    print(f'  npm run devtools:start -- "" "{dir_name}"  # {label}')
+print()
+print("To use a custom URL with a profile:")
+print('  npm run devtools:start -- "http://localhost:5173" "<profile-name>"')
+print()
+print('Note: The first empty string ("") uses the default URL')
+PYEOF
+    else
+        echo "Local State file not found — falling back to directory listing"
+        echo
+        
+        local profile_count=0
+        local profiles=()
+        
+        if [ -d "$chrome_dir/Default" ]; then
+            echo "  • Default"
+            profiles+=("Default")
             profile_count=$((profile_count + 1))
         fi
-    done
-    
-    if [ $profile_count -eq 0 ]; then
-        echo "No Chrome profiles found."
-        echo "Create a new profile in Chrome first."
-        return 1
+        
+        for profile_dir in "$chrome_dir"/Profile*; do
+            if [ -d "$profile_dir" ]; then
+                local profile_name=$(basename "$profile_dir")
+                echo "  • $profile_name"
+                profiles+=("$profile_name")
+                profile_count=$((profile_count + 1))
+            fi
+        done
+        
+        if [ $profile_count -eq 0 ]; then
+            echo "No Chrome profiles found."
+            echo "Create a new profile in Chrome first."
+            return 1
+        fi
+        
+        echo
+        echo "Found $profile_count profile(s)"
+        echo
+        echo "Usage Instructions:"
+        echo "=================="
+        echo "To start Chrome with a specific profile, use:"
+        echo
+        echo "  npm run devtools:start -- \"\" \"<profile-name>\""
+        echo
+        echo "Examples:"
+        for profile in "${profiles[@]}"; do
+            echo "  npm run devtools:start -- \"\" \"$profile\""
+        done
+        echo
+        echo "To use a custom URL with a profile:"
+        echo "  npm run devtools:start -- \"http://localhost:5173\" \"<profile-name>\""
+        echo
+        echo "Note: The first empty string (\"\") uses the default URL (${DEFAULT_URL})"
     fi
-    
-    echo
-    echo "Found $profile_count profile(s)"
-    echo
-    echo "Usage Instructions:"
-    echo "=================="
-    echo "To start Chrome with a specific profile, use:"
-    echo
-    echo "  npm run devtools:start -- \"\" \"<profile-name>\""
-    echo
-    echo "Examples:"
-    for profile in "${profiles[@]}"; do
-        echo "  npm run devtools:start -- \"\" \"$profile\""
-    done
-    echo
-    echo "To use a custom URL with a profile:"
-    echo "  npm run devtools:start -- \"http://localhost:5173\" \"<profile-name>\""
-    echo
-    echo "Note: The first empty string (\"\") uses the default URL (${DEFAULT_URL})"
 }
 
 # Main execution
