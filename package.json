@@ -4,8 +4,9 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "devtools:start": "./shell_scripts/inject-simple.sh start",
-    "devtools:profiles:ls": "./shell_scripts/inject-simple.sh profiles"
+    "publish": "./shell_scripts/publish.sh",
+    "devtools:start": "./shell_scripts/chrome-inject.sh start",
+    "devtools:profiles:ls": "./shell_scripts/chrome-inject.sh profiles"
   },
   "keywords": [],
   "author": "",

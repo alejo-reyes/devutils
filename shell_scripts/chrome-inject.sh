@@ -517,7 +517,7 @@ inject_stdin() {
     if [ -z "$tab_identifier" ]; then
         echo "ERROR: Usage: inject-stdin <tab-id|tab-index>"
         echo "       Tab identifier can be either a tab ID or tab index (1-based)"
-        echo "       echo 'console.log(\"test\")' | $0 inject-stdin <tab-id|tab-index>"
+        echo "       echo 'console.log(\"test\")' | $(basename "$0") inject-stdin <tab-id|tab-index>"
         return 1
     fi
     
@@ -803,7 +803,7 @@ case "${1:-help}" in
         find_tab_by_pattern "$2"
         ;;
     "help"|"--help")
-        echo "Usage: $0 [command] [args...]"
+        echo "Usage: $(basename "$0") [command] [args...]"
         echo ""
         echo "Chrome Management Commands:"
         echo "  start [url] [profile]    - Start Chrome in debug mode with optional profile"
@@ -828,32 +828,32 @@ case "${1:-help}" in
         echo ""
         echo "Examples:"
         echo "  # Chrome management"
-        echo "  $0 start"
-        echo "  $0 start http://localhost:5173"
-        echo "  $0 start \"\" \"Profile 1\""
-        echo "  $0 start http://localhost:5173 \"Profile 2\""
-        echo "  $0 profiles"
-        echo "  $0 tabs"
-        echo "  $0 create-tab http://localhost:5173"
+        echo "  $(basename "$0") start"
+        echo "  $(basename "$0") start http://localhost:5173"
+        echo "  $(basename "$0") start \"\" \"Profile 1\""
+        echo "  $(basename "$0") start http://localhost:5173 \"Profile 2\""
+        echo "  $(basename "$0") profiles"
+        echo "  $(basename "$0") tabs"
+        echo "  $(basename "$0") create-tab http://localhost:5173"
         echo ""
         echo "  # Script injection using tab ID"
-        echo "  $0 inject page_1 'console.log(\"Hello from script!\")'"
-        echo "  $0 inject-file page_1 ./debug-helpers.js"
-        echo "  echo 'console.log(window.location.href)' | $0 inject-stdin page_1"
+        echo "  $(basename "$0") inject page_1 'console.log(\"Hello from script!\")'"
+        echo "  $(basename "$0") inject-file page_1 ./debug-helpers.js"
+        echo "  echo 'console.log(window.location.href)' | $(basename "$0") inject-stdin page_1"
         echo ""
         echo "  # Script injection using tab index (1-based)"
-        echo "  $0 inject 1 'console.log(\"First tab!\")'"
-        echo "  $0 inject 2 'window.debugMode = true'"
-        echo "  $0 inject-file 3 ./scene-operations.js"
-        echo "  echo 'showSceneTree()' | $0 inject-stdin 1"
+        echo "  $(basename "$0") inject 1 'console.log(\"First tab!\")'"
+        echo "  $(basename "$0") inject 2 'window.debugMode = true'"
+        echo "  $(basename "$0") inject-file 3 ./scene-operations.js"
+        echo "  echo 'showSceneTree()' | $(basename "$0") inject-stdin 1"
         echo ""
         echo "  # Tab management"
-        echo "  $0 find-tab localhost"
-        echo "  $0 find-tab 5173"
+        echo "  $(basename "$0") find-tab localhost"
+        echo "  $(basename "$0") find-tab 5173"
         ;;
     *)
         echo "Unknown command: $1"
-        echo "Use '$0 help' for usage information"
+        echo "Use '$(basename "$0") help' for usage information"
         exit 1
         ;;
 esac
