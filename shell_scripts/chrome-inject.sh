@@ -316,63 +316,146 @@ execute_javascript() {
         return 1
     fi
     
-    # Use Python to handle WebSocket communication
+    # Use Python with only stdlib modules (no websockets dependency)
+    local js_escaped
+    js_escaped=$(printf '%s' "$javascript" | python3 -c "import json, sys; print(json.dumps(sys.stdin.read().strip()))")
+    
     local response
-    response=$(python3 -c "
+    response=$(python3 << PYEOF
 import json
-import asyncio
-import websockets
+import socket
+import struct
+import hashlib
+import base64
+import os
 import sys
+import re
+from urllib.parse import urlparse
 
-async def execute_js():
-    try:
-        uri = '${ws_url}'
-        
-        async with websockets.connect(uri) as websocket:
-            # Enable Runtime domain
-            enable_cmd = {
-                'id': 1,
-                'method': 'Runtime.enable'
-            }
-            await websocket.send(json.dumps(enable_cmd))
-            
-            # Wait for enable response
-            while True:
-                response = await websocket.recv()
-                msg = json.loads(response)
-                if msg.get('id') == 1:  # Our enable command response
-                    break
-            
-            # Execute JavaScript
-            eval_cmd = {
-                'id': 2,
-                'method': 'Runtime.evaluate',
-                'params': {
-                    'expression': $(printf '%s' "$javascript" | python3 -c "import json, sys; print(json.dumps(sys.stdin.read().strip()))"),
-                    'returnByValue': True,
-                    'generatePreview': True,
-                    'includeCommandLineAPI': True,
-                    'userGesture': True,
-                    'awaitPromise': False
-                }
-            }
-            
-            await websocket.send(json.dumps(eval_cmd))
-            
-            # Wait for evaluation response
-            while True:
-                response = await websocket.recv()
-                msg = json.loads(response)
-                if msg.get('id') == 2:  # Our evaluation command response
-                    print(json.dumps(msg, indent=2))
-                    break
-            
-    except Exception as e:
-        print(json.dumps({'error': {'message': str(e)}}), file=sys.stderr)
-        sys.exit(1)
+ws_url = '${ws_url}'
+js_expression = ${js_escaped}
 
-asyncio.run(execute_js())
-")
+def ws_connect(url):
+    parsed = urlparse(url)
+    host = parsed.hostname
+    port = parsed.port or 80
+    path = parsed.path or '/'
+
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.settimeout(10)
+    sock.connect((host, port))
+
+    key = base64.b64encode(os.urandom(16)).decode()
+    handshake = (
+        f"GET {path} HTTP/1.1\r\n"
+        f"Host: {host}:{port}\r\n"
+        f"Upgrade: websocket\r\n"
+        f"Connection: Upgrade\r\n"
+        f"Sec-WebSocket-Key: {key}\r\n"
+        f"Sec-WebSocket-Version: 13\r\n"
+        f"\r\n"
+    )
+    sock.sendall(handshake.encode())
+
+    resp = b""
+    while b"\r\n\r\n" not in resp:
+        resp += sock.recv(4096)
+
+    if b"101" not in resp.split(b"\r\n")[0]:
+        raise Exception(f"WebSocket handshake failed: {resp.decode()}")
+
+    return sock
+
+def ws_send(sock, data):
+    payload = data.encode("utf-8")
+    mask_key = os.urandom(4)
+    length = len(payload)
+
+    frame = bytearray()
+    frame.append(0x81)  # FIN + text opcode
+
+    if length < 126:
+        frame.append(0x80 | length)
+    elif length < 65536:
+        frame.append(0x80 | 126)
+        frame.extend(struct.pack("!H", length))
+    else:
+        frame.append(0x80 | 127)
+        frame.extend(struct.pack("!Q", length))
+
+    frame.extend(mask_key)
+    masked = bytearray(b ^ mask_key[i % 4] for i, b in enumerate(payload))
+    frame.extend(masked)
+    sock.sendall(frame)
+
+def ws_recv(sock):
+    def read_exact(n):
+        data = b""
+        while len(data) < n:
+            chunk = sock.recv(n - len(data))
+            if not chunk:
+                raise Exception("Connection closed")
+            data += chunk
+        return data
+
+    header = read_exact(2)
+    opcode = header[0] & 0x0F
+    masked = (header[1] & 0x80) != 0
+    length = header[1] & 0x7F
+
+    if length == 126:
+        length = struct.unpack("!H", read_exact(2))[0]
+    elif length == 127:
+        length = struct.unpack("!Q", read_exact(8))[0]
+
+    if masked:
+        mask_key = read_exact(4)
+        payload = bytearray(read_exact(length))
+        for i in range(len(payload)):
+            payload[i] ^= mask_key[i % 4]
+    else:
+        payload = read_exact(length)
+
+    if opcode == 0x08:
+        raise Exception("Connection closed by server")
+    return bytes(payload).decode("utf-8")
+
+try:
+    sock = ws_connect(ws_url)
+
+    # Enable Runtime domain
+    ws_send(sock, json.dumps({"id": 1, "method": "Runtime.enable"}))
+    while True:
+        msg = json.loads(ws_recv(sock))
+        if msg.get("id") == 1:
+            break
+
+    # Execute JavaScript
+    ws_send(sock, json.dumps({
+        "id": 2,
+        "method": "Runtime.evaluate",
+        "params": {
+            "expression": js_expression,
+            "returnByValue": True,
+            "generatePreview": True,
+            "includeCommandLineAPI": True,
+            "userGesture": True,
+            "awaitPromise": False
+        }
+    }))
+
+    while True:
+        msg = json.loads(ws_recv(sock))
+        if msg.get("id") == 2:
+            print(json.dumps(msg, indent=2))
+            break
+
+    sock.close()
+except Exception as e:
+    print(json.dumps({"error": {"message": str(e)}}), file=sys.stderr)
+    sys.exit(1)
+PYEOF
+)
     
     if [ $? -eq 0 ]; then
         # Parse and format the response
