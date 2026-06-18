@@ -6,7 +6,8 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "publish": "./shell_scripts/publish.sh",
     "devtools:start": "./shell_scripts/chrome-inject.sh start",
-    "devtools:profiles:ls": "./shell_scripts/chrome-inject.sh profiles"
+    "devtools:profiles:ls": "./shell_scripts/chrome-inject.sh profiles",
+    "devtools:tabs:list": "./shell_scripts/chrome-tabs.sh"
   },
   "keywords": [],
   "author": "",
