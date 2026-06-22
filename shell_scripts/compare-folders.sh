@@ -92,30 +92,28 @@ fi
 typeset -A hashes1 hashes2
 
 if (( SHALLOW )); then
-  while IFS= read -r path || [[ -n "$path" ]]; do
-    [[ -z "$path" ]] && continue
-    hashes1["$path"]="structure-only"
+  while IFS= read -r rel_path || [[ -n "$rel_path" ]]; do
+    [[ -z "$rel_path" ]] && continue
+    hashes1["$rel_path"]="structure-only"
   done < "$TMPDIR/folder1.txt"
 
-  while IFS= read -r path || [[ -n "$path" ]]; do
-    [[ -z "$path" ]] && continue
-    hashes2["$path"]="structure-only"
+  while IFS= read -r rel_path || [[ -n "$rel_path" ]]; do
+    [[ -z "$rel_path" ]] && continue
+    hashes2["$rel_path"]="structure-only"
   done < "$TMPDIR/folder2.txt"
 else
   while IFS= read -r line || [[ -n "$line" ]]; do
     [[ -z "$line" ]] && continue
-    hash=${line%% *}
-    path=${line#"$hash"}
-    path=${path## }
-    hashes1["$path"]=$hash
+    file_hash=${line%% *}
+    rel_path=${line#*  }
+    hashes1["$rel_path"]=$file_hash
   done < "$TMPDIR/folder1.txt"
 
   while IFS= read -r line || [[ -n "$line" ]]; do
     [[ -z "$line" ]] && continue
-    hash=${line%% *}
-    path=${line#"$hash"}
-    path=${path## }
-    hashes2["$path"]=$hash
+    file_hash=${line%% *}
+    rel_path=${line#*  }
+    hashes2["$rel_path"]=$file_hash
   done < "$TMPDIR/folder2.txt"
 fi
 
@@ -129,19 +127,19 @@ added=()
 removed=()
 modified=()
 
-for path in "${all_paths[@]}"; do
-  h1="${hashes1[$path]}"
-  h2="${hashes2[$path]}"
+for rel_path in "${all_paths[@]}"; do
+  h1="${hashes1[$rel_path]}"
+  h2="${hashes2[$rel_path]}"
   if [[ -n "$h1" && -n "$h2" ]]; then
     if [[ "$h1" == "$h2" ]]; then
-      identical+=("$path")
+      identical+=("$rel_path")
     else
-      modified+=("$path")
+      modified+=("$rel_path")
     fi
   elif [[ -n "$h1" ]]; then
-    removed+=("$path")
+    removed+=("$rel_path")
   elif [[ -n "$h2" ]]; then
-    added+=("$path")
+    added+=("$rel_path")
   fi
 done
 
