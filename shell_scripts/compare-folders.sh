@@ -147,8 +147,8 @@ done
 
 # Report
 echo "🔍 Comparing folders:"
-echo "  Folder 1: $ABS1"
-echo "  Folder 2: $ABS2"
+echo "  Folder 1: $ABS1 ($(find "$ABS1" -type f | wc -l) items)"
+echo "  Folder 2: $ABS2 ($(find "$ABS2" -type f | wc -l) items)"
 echo
 
 if (( SHALLOW )); then
